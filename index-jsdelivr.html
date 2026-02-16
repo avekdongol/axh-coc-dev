@@ -1,0 +1,1514 @@
+<!DOCTYPE html>
+<html> 
+    <head>
+        <!--Encoding and viewport-->
+	    <meta charset="utf-8">
+	    <meta name="viewport" content="width=device-width, initial-scale=1">
+        <!--Import google fonts, preconnecting allows fonts to be loaded by the canvas. This is very important! It allows me to easily add text without a hacky promise method -->
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bangers&family=Exo">
+        <!--For the thumb title-->
+        <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700" rel="stylesheet">
+        <link rel='stylesheet' href='https://fonts.googleapis.com/css2?family=Lato&family=Material+Icons&display=swap'>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/gh/Arrow-programming/base64/dungeon.js"></script>
+        <!--The page title-->
+        <title>New Webpage ;)</title>
+        <!--CSS Styling-->
+        <link rel="stylesheet" href="style.css" /><!-- COMBINE -->
+    </head> 
+    <body>
+        <!--The container for the entire thing-->
+        <div id="container">
+            <div id="game-wrapper">
+                <canvas id="game">Your browser does not support canvas</canvas>
+                <canvas id='overlay-canvas'></canvas>
+            </div>
+            
+            <div id="overlay">
+                <button id="copyButton">Copy Score</button>
+                <div id="fullscreen-container">
+                    <span class='material-icons' id='fullscreen'>fullscreen</span>
+                    <span class='material-icons' id='audio'>volume_up</span>
+                    <span class='material-icons' id='reload'>refresh</span>
+                </div>
+            </div>
+        </div>
+        <!--All the stinkn' UI-->
+        <div id="interface">
+            <!--<div id = "score"></div>
+            <div id="best-score">Best: 0</div>-->
+            <div id="shop" class="hidden">
+                <!--toggle, why don't inline functions work anymore?-->
+                <div id="shop-tab">
+                    <i class="material-icons" style = "margin-right: -45px">shopping_cart</i>
+                </div>
+    
+            </div>
+        </div>
+        <canvas id = "thumb"></canvas>
+    </body>
+    
+    <script src="https://cdn.jsdelivr.net/gh/xyzyyxx-ka/axh-coc-dev@latest/htmlSetUp.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/xyzyyxx-ka/axh-coc-dev@latest/storage.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/xyzyyxx-ka/axh-coc-dev@latest/graphicHelpers.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/xyzyyxx-ka/axh-coc-dev@latest/ui.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/xyzyyxx-ka/axh-coc-dev@latest/audio.js"></script>
+    <!--Having a script type of 'module' allows me to modify the document with the script tag. A blank type or module type permits the use of ES6 JS. It should be noted that the same goal can be reached by wrapping a script with a blank type in (() => {})(); which is an unnamed IIFE. -->
+    <script type>
+(function Application() {
+    const tileColors = ["#D1A593", "#45B7D1", "#6BCB77"];
+
+    class Intro {
+        constructor() {
+            this.prog = 0;
+            this.spdLns = [];
+            this.arrowX = width / 2;
+            this.textFade = 0;
+        }
+	    run() {
+            document.getElementById("interface").style.display = "none";
+            document.getElementById("overlay").style.display = "none";
+            ctx.lineJoin = "round";
+            this.prog++;
+            ctx.fillStyle = "rgba(18, 18, 18, 1)"
+            ctx.fillRect(0, 0, 600, 600)
+            if (this.prog < 200) {
+                this.spdLns.push({
+                    x: width / 2 + random(-150, 150),
+                    y: -25,
+                    sz: 50
+                });
+                for(var i = 0; i < 3; i ++){
+                    var b = random(random(random(-70,0),0),random(0, random(0, 70)));
+                    this.spdLns.push({
+                        x: width / 2 + b,
+                        y: height / 2 + Math.abs(b),
+                        sz: 40
+                    });
+                }
+            }else if(this.prog > 200 && this.prog < 250){
+                this.arrowX = lerp(this.arrowX, width/2 - 80, 0.1);
+            }else if(this.prog > 250 && this.prog < 320){
+                this.textFade = lerp(this.textFade, 255, 0.05);
+            }else if(this.prog > 360){
+                //replace transition code as needed :)
+                window.scene = "menu";
+                //force menu creation immediately when intro finishes
+                if (!window.menuCreated && !window.opener) {
+                    createMenu();
+                }
+            }
+            
+            for (var i = 0; i < this.spdLns.length; i++) {
+                var a = this.spdLns[i];
+                ctx.fillStyle = "rgba(245, 245, 245, 1)"
+                ellipse(a.x, a.y, 1, a.sz);
+                a.y += 16.7;
+                if (a.y > height + 25) {
+                    this.spdLns.splice(i, 1);
+                }
+            }
+            ctx.save();
+            ctx.translate(this.arrowX, height / 2);
+            ctx.lineWidth = 5;
+            ctx.strokeStyle = `rgba(255, 255, 255, ${this.textFade/255})`;	
+            ctx.fillStyle = `rgba(255, 255, 255, ${1 - this.textFade/255})`;
+            ctx.beginPath();
+            ctx.lineTo(-50, 50);
+            ctx.bezierCurveTo(-31, -16, -8, -44, 0, -54);
+            ctx.bezierCurveTo(18, -37, 34, 1, 50, 51);
+            ctx.bezierCurveTo(25, 13, 7, -3, 0, -9);
+            ctx.bezierCurveTo(-17, 6, -44, 42, -50, 51);
+            ctx.stroke();
+            ctx.fill();
+            ctx.closePath();
+            
+            ctx.save();
+            ctx.translate(-100, -200);
+            
+            ctx.beginPath();
+            ctx.lineTo(161,237);
+            ctx.bezierCurveTo(162,211,162,207,159,203);
+            ctx.lineTo(161,208);
+            ctx.bezierCurveTo(166,201,170,200,176,208);
+            ctx.stroke();
+            ctx.closePath();
+            
+            
+            ctx.beginPath();
+            ctx.lineTo(190,238);
+            ctx.bezierCurveTo(191,210,191,210,188,202);
+            ctx.lineTo(192,206);
+            ctx.bezierCurveTo(196,203,200,201,207,211);
+            ctx.stroke();
+            ctx.closePath();
+            
+            
+            ctx.beginPath();
+            ctx.lineTo(224,206);
+            ctx.bezierCurveTo(210,213,210,225,224,234);
+            ctx.bezierCurveTo(241,224,237,210,223,206);
+            ctx.stroke();
+            ctx.closePath();
+            
+            
+            ctx.beginPath();
+            ctx.lineTo(247,204);
+            ctx.bezierCurveTo(260,241,260,241,270,208);
+            ctx.bezierCurveTo(279,241,279,241,293,204);
+            ctx.stroke();
+            ctx.closePath();
+            
+            
+            ctx.beginPath();
+            ctx.lineTo(136,168);
+            ctx.bezierCurveTo(140,171,150,169,154,171);
+            ctx.stroke();
+            ctx.closePath();
+            
+            
+            ctx.beginPath();
+            ctx.lineTo(142,158);
+            ctx.bezierCurveTo(143,168,143,178,145,191);
+                            ctx.stroke();
+            ctx.closePath();
+            
+            
+            ctx.beginPath();
+            ctx.lineTo(158,176);
+            ctx.bezierCurveTo(165,178,173,178,181,177);
+            ctx.bezierCurveTo(170,159,168,159,157,177);
+            ctx.bezierCurveTo(168,192,168,192,179,184);
+            ctx.stroke();
+            ctx.closePath();
+            
+            ctx.beginPath();
+            ctx.lineTo(213,188);
+            ctx.bezierCurveTo(208,183,212,165,199,168);
+            ctx.bezierCurveTo(186,169,187,189,195,190);
+            ctx.bezierCurveTo(202,193,206,185,207,182);
+            ctx.stroke();
+            ctx.closePath();
+            
+            
+            ctx.beginPath();
+            ctx.lineTo(223,191);
+            ctx.bezierCurveTo(230,159,230,159,238,192);
+            ctx.bezierCurveTo(250,160,250,160,257,191);
+            ctx.stroke();
+            ctx.closePath();
+            ctx.restore();
+            ctx.restore();
+            
+            ctx.lineJoin = "miter";
+        }
+    }
+	let intro = new Intro();
+    
+    
+
+    let roundError = 1;
+
+    //this.drones
+    let debugMode = !true;
+    
+    
+    
+    
+    window.scene = "load";
+    
+    /**
+    * converts screen coordinates to canvas coordinates
+    */
+    function screenToWorld(screenX, screenY) {
+        //get canvas position and dimensions
+        const rect = canvas.getBoundingClientRect();
+        
+        //convert screen coords to canvas coords
+        const canvasX = screenX - rect.left;
+        const canvasY = screenY - rect.top;
+        
+        return { 
+            x: canvasX, 
+            y: canvasY
+        };
+    }
+    
+    //the game
+    const Application = (function() {
+        const App = function(config) {
+            //self represent
+            this.app = App;
+            
+            
+            //tile class
+            class Tile {
+                constructor(col, row, colorIndex = 0) {
+                    this.col = col;
+                    this.row = row;
+                    //0 or 1 blue or green
+                    this.colorIndex = colorIndex;
+                    this.x = 0;
+                    this.y = 0;
+                    this.targetX = 0;
+                    this.targetY = 0;
+                    this.matched = false;
+                    this.isMoving = false;
+                    this.scale = 1;
+                    this.rotation = 0;
+                    this.opacity = 1;
+                    this.falling = false;
+                    this.beingDragged = false;
+
+                    //side indicators
+                    this.sides = { left: false, right: false, up: false, down: false };
+                    //randomize
+                    const sidesArr = ["left", "right", "up", "down"];
+                    let count = Math.floor(Math.random() * 4) + 1;
+                    while (count > 0) {
+                        const i = Math.floor(Math.random() * sidesArr.length);
+                        const s = sidesArr.splice(i, 1)[0];
+                        this.sides[s] = true;
+                        count--;
+                    }
+                }
+
+                updatePosition(tileSize, boardX, boardY) {
+                    this.targetX = boardX + this.col * tileSize + tileSize / 2;
+                    this.targetY = boardY + this.row * tileSize + tileSize / 2;
+
+                    if (!this.isMoving) {
+                        this.x = this.targetX;
+                        this.y = this.targetY;
+                    }
+                }
+
+                animate(dt) {
+                    //dont animate while user is dragging this tile
+                    if (this.beingDragged) return;
+
+                    //move with predictable per-axis speed to avoid jerk
+                    const maxSpeedY = 1200; 
+                    const maxSpeedX = 1000;
+
+                    const dy = this.targetY - this.y;
+                    const dx = this.targetX - this.x;
+
+                    const stepY = Math.sign(dy) * Math.min(Math.abs(dy), maxSpeedY * dt);
+                    const stepX = Math.sign(dx) * Math.min(Math.abs(dx), maxSpeedX * dt);
+
+                    this.x += stepX;
+                    this.y += stepY;
+
+                    const dist = Math.hypot(dx - stepX, dy - stepY);
+                    const stopThreshold = Math.max(0.5, 8 * dt);
+                    if (Math.abs(dx) <= stopThreshold && Math.abs(dy) <= stopThreshold) {
+                        this.x = this.targetX;
+                        this.y = this.targetY;
+                        this.isMoving = false;
+                    } 
+                    else {
+                        this.isMoving = true;
+                    }
+
+                    //smooth scale back to 1
+                    if (this.scale > 1) {
+                        const scaleSpeed = 6;
+                        const delta = (1 - this.scale) * (1 - Math.exp(-scaleSpeed * dt));
+                        this.scale += delta;
+                        if (this.scale < 1.01) this.scale = 1;
+                    }
+
+                    if (this.matched) {
+                        this.scale *= 0.95;
+                        this.opacity *= 0.9;
+                    }
+                }
+
+                draw(tileSize, isDragging = false) {
+                    ctx.globalAlpha = this.opacity;
+                    ctx.save();
+                    ctx.translate(this.x, this.y);
+                    ctx.scale(this.scale, this.scale);
+                    ctx.rotate(this.rotation);
+
+                    const cornerRadius = 8;
+                    const bgSize = tileSize * 0.48;
+                    const fillColor = tileColors[this.colorIndex % tileColors.length];
+
+                    //background rounded rect
+                    ctx.fillStyle = fillColor;
+                    ctx.beginPath();
+                    ctx.moveTo(-bgSize + cornerRadius, -bgSize);
+                    ctx.lineTo(bgSize - cornerRadius, -bgSize);
+                    ctx.quadraticCurveTo(bgSize, -bgSize, bgSize, -bgSize + cornerRadius);
+                    ctx.lineTo(bgSize, bgSize - cornerRadius);
+                    ctx.quadraticCurveTo(bgSize, bgSize, bgSize - cornerRadius, bgSize);
+                    ctx.lineTo(-bgSize + cornerRadius, bgSize);
+                    ctx.quadraticCurveTo(-bgSize, bgSize, -bgSize, bgSize - cornerRadius);
+                    ctx.lineTo(-bgSize, -bgSize + cornerRadius);
+                    ctx.quadraticCurveTo(-bgSize, -bgSize, -bgSize + cornerRadius, -bgSize);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    ctx.strokeStyle = isDragging ? "rgba(255,255,180,0.9)" : "rgba(255,255,255,0.6)";
+                    ctx.lineWidth = isDragging ? 3 : 2;
+                    ctx.stroke();
+
+                    //draw small red indicators on sides
+                    ctx.fillStyle = "#D9534F"; 
+                    const indLen = tileSize * 0.22;
+                    const indW = Math.max(3, Math.round(tileSize * 0.06));
+                    if (this.sides.up) {
+                        ctx.fillRect(-indLen / 2, -bgSize + 6, indLen, indW);
+                    }
+                    if (this.sides.down) {
+                        ctx.fillRect(-indLen / 2, bgSize - 6 - indW, indLen, indW);
+                    }
+                    if (this.sides.left) {
+                        ctx.fillRect(-bgSize + 6, -indLen / 2, indW, indLen);
+                    }
+                    if (this.sides.right) {
+                        ctx.fillRect(bgSize - 6 - indW, -indLen / 2, indW, indLen);
+                    }
+
+                    ctx.restore();
+                    ctx.globalAlpha = 1;
+                }
+            }
+            
+            //tile Grid
+            class TilePool {
+                constructor(tileSize, left = 10, top = 10) {
+                    this.tileSize = tileSize;
+                    this.left = left;
+                    this.top = top;
+                    this.padding = 8;
+                    this.spacing = 10;
+                    this.tiles = [];
+                }
+
+                getTarget(slot) {
+                    const x = this.left + slot * this.spacing + this.tileSize / 2;
+                    const y = this.top + this.tileSize / 2;
+                    return { 
+                        x, 
+                        y
+                    };
+                }
+
+                add(tile) {
+                    const slot = this.tiles.length;
+                    tile.poolIndex = slot;
+                    //enforce consistent visuals when entering pool
+                    tile.inPool = true;
+                    tile.toBePooled = false;
+                    tile.isMoving = false;
+                    tile.beingDragged = false;
+                    tile.scale = 1;
+                    tile.opacity = 1;
+                    tile.rotation = 0;
+
+                    const t = this.getTarget(slot);
+                    tile.x = t.x;
+                    tile.y = t.y;
+                    tile.targetX = t.x;
+                    tile.targetY = t.y;
+                    this.tiles.push(tile);
+                }
+
+                insertAt(tile, idx) {
+                    //insert back into pool at index and renumber
+                    this.tiles.splice(idx, 0, tile);
+                    for (let i = 0; i < this.tiles.length; i++) {
+                        const p = this.tiles[i];
+                        p.poolIndex = i;
+                        const t = this.getTarget(i);
+                        p.targetX = t.x;
+                        p.targetY = t.y;
+                        p.isMoving = true;
+                    }
+                }
+
+                remove(tile) {
+                    const idx = this.tiles.indexOf(tile);
+                    if (idx >= 0) this.tiles.splice(idx, 1);
+                    //renumber remaining
+                    for (let i = 0; i < this.tiles.length; i++) {
+                        const p = this.tiles[i];
+                        p.poolIndex = i;
+                        const t = this.getTarget(i);
+                        p.targetX = t.x;
+                        p.targetY = t.y;
+                        p.isMoving = true;
+                    }
+                }
+            }
+
+            class TileBoard {
+                constructor(cols = 6, rows = 6, boardX = 20, boardY = 120, tileSize = 85) {
+                    this.cols = cols;
+                    this.rows = rows;
+                    this.boardX = boardX;
+                    this.boardY = boardY;
+                    this.tileSize = tileSize;
+                    this.tiles = [];
+                    this.pool = new TilePool(this.tileSize, 12, 12, 8);
+                    this.selectedTile = null;
+                    this.draggedTile = null;
+                    this.draggedTileOriginal = null;
+                    this.dragOffsetX = 0;
+                    this.dragOffsetY = 0;
+                    this.scores = 0;
+                    this.matchesThisFrame = 0;
+                    this.swapInProgress = false;
+                    this.invalidSwap = false;
+                    this.invalidSwapTiles = null;
+                    this.invalidSwapTime = 0;
+                    this.lastMousePos = {
+                        x: 0,
+                        y: 0
+                    };
+                    this.wasMouseDown = false;
+                    //{ tile1, tile2 } when user swaps
+                    this.pendingUserSwap = null; 
+                    //store reversing pair
+                    this.reversingSwap = null; 
+                    //set true when reverse animation running
+                    this.justReversed = false; 
+                    
+                    this.initBoard();
+                }
+                
+                initBoard() {
+                    //fill board regenerate entire board until no initial connected matches exist
+                    const makeBoard = () => {
+                        for (let row = 0; row < this.rows; row++) {
+                            this.tiles[row] = [];
+                            for (let col = 0; col < this.cols; col++) {
+                                const colorIndex = Math.floor(Math.random() * tileColors.length);
+                                const tile = new Tile(col, row, colorIndex);
+                                tile.updatePosition(this.tileSize, this.boardX, this.boardY);
+                                this.tiles[row][col] = tile;
+                            }
+                        }
+                    };
+
+                    //regenerate until there are no immediate matches and at least one possible move
+                    do {
+                        makeBoard();
+                    } while (this.findMatches().length > 0 || !this.hasPossibleMove());
+                }
+                
+                //initial board will be regenerated if any connected matches are present
+                isTileValid(col, row) {
+                    return true;
+                }
+                
+                getTileAtPos(x, y) {
+                    const col = Math.floor((x - this.boardX) / this.tileSize);
+                    const row = Math.floor((y - this.boardY) / this.tileSize);
+                    
+                    if (col >= 0 && col < this.cols && row >= 0 && row < this.rows) {
+                        return this.tiles[row][col];
+                    }
+                    return null;
+                }
+                
+                selectTile(tile) {
+                    if (this.swapInProgress) return;
+                    
+                    if (this.selectedTile === tile) {
+                        this.selectedTile = null;
+                    } else if (!this.selectedTile) {
+                        this.selectedTile = tile;
+                    } else {
+                        //swap tiles if adjacent
+                        if (this.areAdjacent(this.selectedTile, tile)) {
+                            //mark as a user-initiated swap so we can check after animation
+                            this.pendingUserSwap = { tile1: this.selectedTile, tile2: tile };
+                            this.swapTiles(this.selectedTile, tile);
+                        }
+                        this.selectedTile = tile;
+                    }
+                }
+                
+                areAdjacent(tile1, tile2) {
+                    const colDiff = Math.abs(tile1.col - tile2.col);
+                    const rowDiff = Math.abs(tile1.row - tile2.row);
+                    return (colDiff === 1 && rowDiff === 0) || (colDiff === 0 && rowDiff === 1);
+                }
+                
+                swapTiles(tile1, tile2) {
+                    //swap positions in grid
+                    [this.tiles[tile1.row][tile1.col], this.tiles[tile2.row][tile2.col]] =
+                    [this.tiles[tile2.row][tile2.col], this.tiles[tile1.row][tile1.col]];
+                    
+                    //store original data before swapping properties
+                    const originalRow1 = tile1.row;
+                    const originalCol1 = tile1.col;
+                    
+                    //swap row/col properties
+                    tile1.row = tile2.row;
+                    tile1.col = tile2.col;
+                    tile2.row = originalRow1;
+                    tile2.col = originalCol1;
+                    
+                    //ensure tiles animate towards their targets
+                    tile1.isMoving = true;
+                    tile2.isMoving = true;
+
+                    //update target positions (animation will move from current x/y)
+                    tile1.updatePosition(this.tileSize, this.boardX, this.boardY);
+                    tile2.updatePosition(this.tileSize, this.boardX, this.boardY);
+
+                    this.swapInProgress = true;
+                }
+                
+                reverseSwap(tile1, tile2) {
+                    //reverse a swap with animation
+                    [this.tiles[tile1.row][tile1.col], this.tiles[tile2.row][tile2.col]] =
+                    [this.tiles[tile2.row][tile2.col], this.tiles[tile1.row][tile1.col]];
+
+                    const originalRow1 = tile1.row;
+                    const originalCol1 = tile1.col;
+
+                    tile1.row = tile2.row;
+                    tile1.col = tile2.col;
+                    tile2.row = originalRow1;
+                    tile2.col = originalCol1;
+
+                    //ensure reverse animates
+                    tile1.isMoving = true;
+                    tile2.isMoving = true;
+
+                    tile1.updatePosition(this.tileSize, this.boardX, this.boardY);
+                    tile2.updatePosition(this.tileSize, this.boardX, this.boardY);
+
+                    //mark that we've initiated a reverse so update() can handle end-of-animation cleanup
+                    this.justReversed = true;
+                    this.swapInProgress = true;
+                }
+                
+                findMatches() {
+                    //find connected components where tiles have same color and both have indicators on the touching side
+                    const matched = [];
+                    const visited = Array.from({ length: this.rows }, () => Array(this.cols).fill(false));
+
+                    const inBounds = (r, c) => r >= 0 && r < this.rows && c >= 0 && c < this.cols;
+
+                    for (let r = 0; r < this.rows; r++) {
+                        for (let c = 0; c < this.cols; c++) {
+                            const start = this.tiles[r][c];
+                            if (!start || visited[r][c]) continue;
+
+                            const color = start.colorIndex;
+                            const stack = [start];
+                            const component = [];
+
+                            while (stack.length) {
+                                const t = stack.pop();
+                                const tr = t.row;
+                                const tc = t.col;
+                                if (visited[tr][tc]) continue;
+                                visited[tr][tc] = true;
+                                component.push(t);
+
+                                //check four neighbors for bidirectional (fun word lol) indicator connection
+                                const neighbors = [
+                                    { rr: tr - 1, cc: tc, side: 'up', opp: 'down' },
+                                    { rr: tr + 1, cc: tc, side: 'down', opp: 'up' },
+                                    { rr: tr, cc: tc - 1, side: 'left', opp: 'right' },
+                                    { rr: tr, cc: tc + 1, side: 'right', opp: 'left' }
+                                ];
+
+                                for (const n of neighbors) {
+                                    if (!inBounds(n.rr, n.cc)) continue;
+                                    const nb = this.tiles[n.rr][n.cc];
+                                    if (!nb) continue;
+                                    if (visited[n.rr][n.cc]) continue;
+                                    if (nb.colorIndex !== color) continue;
+
+                                    //both tiles must have indicators on the contacting sides
+                                    if (t.sides[n.side] && nb.sides[n.opp]) {
+                                        stack.push(nb);
+                                    }
+                                }
+                            }
+
+                            if (component.length >= 2) {
+                                //limit match removal to a maximum of 3 tiles per connected component
+                                const toAdd = component.slice(0, 3);
+                                for (const tile of toAdd) matched.push(tile);
+                            }
+                        }
+                    }
+
+                    return matched;
+                }
+                
+                handleMatches() {
+                    let matched = this.findMatches();
+
+                    if (matched.length === 0) {
+                        this.swapInProgress = false;
+                        return;
+                    }
+
+                    //mark matched tiles and prepare to animate them into the canvas pool
+                    matched.forEach(tile => {
+                        tile.matched = true;
+                        tile.toBePooled = true;
+                        tile.inPool = false;
+                        tile.isMoving = false;
+                    });
+
+                    //pool layout
+                    matched.forEach((tile, idx) => {
+                        const slot = this.pool.tiles.length + idx;
+                        const t = this.pool.getTarget(slot);
+                        tile.targetX = t.x;
+                        tile.targetY = t.y;
+                        tile.isMoving = true;
+                        tile.rotation = 0;
+                    });
+
+                    //keep swapInProgress true until pooling finishes
+                    this.swapInProgress = true;
+                }
+                
+                applyGravity() {
+                    for (let col = 0; col < this.cols; col++) {
+                        let writePos = this.rows - 1;
+                        
+                        for (let row = this.rows - 1; row >= 0; row--) {
+                            if (this.tiles[row][col] !== null) {
+                                if (row !== writePos) {
+                                    this.tiles[writePos][col] = this.tiles[row][col];
+                                    this.tiles[writePos][col].row = writePos;
+                                    //mark as moving so updatePosition does not snap them
+                                    this.tiles[writePos][col].isMoving = true;
+                                    this.tiles[row][col] = null;
+                                }
+                                writePos--;
+                            }
+                        }
+                    }
+                    
+                    //update positions
+                    for (let row = 0; row < this.rows; row++) {
+                        for (let col = 0; col < this.cols; col++) {
+                            if (this.tiles[row][col]) {
+                                this.tiles[row][col].updatePosition(
+                                    this.tileSize, this.boardX, this.boardY
+                                );
+                            }
+                        }
+                    }
+                }
+                
+                fillGaps() {
+                    for (let col = 0; col < this.cols; col++) {
+                        for (let row = 0; row < this.rows; row++) {
+                            if (this.tiles[row][col] === null) {
+                                const colorIndex = Math.floor(Math.random() * tileColors.length);
+                                const tile = new Tile(col, row, colorIndex);
+                                //start above the board
+                                tile.y = this.boardY - this.tileSize;
+                                tile.targetY = this.boardY + row * this.tileSize + this.tileSize / 2;
+                                tile.targetX = this.boardX + col * this.tileSize + this.tileSize / 2;
+                                tile.x = tile.targetX;
+                                this.tiles[row][col] = tile;
+                            }
+                        }
+                    }
+                    
+                    //check for cascade matches note to self: don't use setTimeout it is slow
+                    setTimeout(() => {
+                        this.handleMatches();
+                    }, 400);
+                }
+
+                hasPossibleMove() {
+                    //returns true if there exists at least one adjacent swap that would create a match
+                    const inBounds = (r, c) => r >= 0 && r < this.rows && c >= 0 && c < this.cols;
+
+                    for (let r = 0; r < this.rows; r++) {
+                        for (let c = 0; c < this.cols; c++) {
+                            const t = this.tiles[r][c];
+                            if (!t) continue;
+
+                            //check right neighbor
+                            const rc = c + 1;
+                            if (rc < this.cols) {
+                                const t2 = this.tiles[r][rc];
+                                if (t2) {
+                                    //swap inplace
+                                    this.tiles[r][c] = t2;
+                                    this.tiles[r][rc] = t;
+                                    const origR1 = t.row, origC1 = t.col, origR2 = t2.row, origC2 = t2.col;
+                                    t.row = r; t.col = rc; t2.row = r; t2.col = c;
+
+                                    const matches = this.findMatches();
+
+                                    //swap back
+                                    this.tiles[r][c] = t;
+                                    this.tiles[r][rc] = t2;
+                                    t.row = origR1; t.col = origC1; t2.row = origR2; t2.col = origC2;
+
+                                    if (matches.length > 0) return true;
+                                }
+                            }
+
+                            //check down neighbor
+                            const rr = r + 1;
+                            if (rr < this.rows) {
+                                const t2 = this.tiles[rr][c];
+                                if (t2) {
+                                    this.tiles[r][c] = t2;
+                                    this.tiles[rr][c] = t;
+                                    const origR1 = t.row, origC1 = t.col, origR2 = t2.row, origC2 = t2.col;
+                                    t.row = rr; t.col = c; t2.row = r; t2.col = c;
+
+                                    const matches = this.findMatches();
+
+                                    this.tiles[r][c] = t;
+                                    this.tiles[rr][c] = t2;
+                                    t.row = origR1; t.col = origC1; t2.row = origR2; t2.col = origC2;
+
+                                    if (matches.length > 0) return true;
+                                }
+                            }
+                        }
+                    }
+
+                    return false;
+                }
+
+                reshuffleBoard() {
+                    //flatten tiles
+                    const list = [];
+                    for (let r = 0; r < this.rows; r++) {
+                        for (let c = 0; c < this.cols; c++) {
+                            if (this.tiles[r][c]) list.push(this.tiles[r][c]);
+                        }
+                    }
+
+                    //try shuffling until a solvable board (no immediate matches and hasPossibleMove)
+                    const shuffleArray = (a) => {
+                        for (let i = a.length - 1; i > 0; i--) {
+                            const j = Math.floor(Math.random() * (i + 1));
+                            [a[i], a[j]] = [a[j], a[i]];
+                        }
+                    };
+
+                    let attempts = 0;
+                    do {
+                        shuffleArray(list);
+                        //reassign
+                        let idx = 0;
+                        for (let r = 0; r < this.rows; r++) {
+                            for (let c = 0; c < this.cols; c++) {
+                                const t = list[idx++];
+                                this.tiles[r][c] = t || null;
+                                if (t) {
+                                    t.row = r; t.col = c;
+                                    t.updatePosition(this.tileSize, this.boardX, this.boardY);
+                                    t.x = t.targetX; t.y = t.targetY;
+                                    t.isMoving = false;
+                                }
+                            }
+                        }
+                        attempts++;
+                        if (attempts > 200) break;
+                    } while (this.findMatches().length > 0 || !this.hasPossibleMove());
+                }
+                
+                update(dt) {
+                    //update all tiles
+                    for (let row = 0; row < this.rows; row++) {
+                        for (let col = 0; col < this.cols; col++) {
+                            if (this.tiles[row][col]) {
+                                this.tiles[row][col].animate(dt);
+                            }
+                        }
+                    }
+
+                    //check for tiles that finished animating into the pool and move them from grid to pool
+                    let pooledThisFrame = [];
+                    for (let row = 0; row < this.rows; row++) {
+                        for (let col = 0; col < this.cols; col++) {
+                            const t = this.tiles[row][col];
+                            if (t && t.toBePooled && !t.isMoving && !t.inPool) {
+                                //remove from grid and add to pool
+                                this.tiles[row][col] = null;
+                                t.inPool = true;
+                                t.toBePooled = false;
+                                //ensure position remains at pool target
+                                t.x = t.targetX;
+                                t.y = t.targetY;
+                                this.pool.add(t);
+                                pooledThisFrame.push(t);
+                            }
+                        }
+                    }
+
+                    if (pooledThisFrame.length > 0) {
+                        this.applyGravity();
+                        this.fillGaps();
+                        this.swapInProgress = false;
+                    }
+                    
+                    //handle invalid swap completion
+                    if (this.invalidSwap && this.invalidSwapTiles) {
+                        this.invalidSwapTime += dt;
+                        const tile = this.invalidSwapTiles;
+                        const dist = Math.hypot(tile.targetX - tile.x, tile.targetY - tile.y);
+                        
+                        //when tile reaches original position, clear invalid swap
+                        if (dist < 2) {
+                            this.invalidSwap = false;
+                            this.invalidSwapTiles = null;
+                            this.invalidSwapTime = 0;
+                        }
+                    }
+                    
+                    //handle matches if no tiles are moving
+                    let anyMoving = false;
+                    for (let row = 0; row < this.rows; row++) {
+                        for (let col = 0; col < this.cols; col++) {
+                            if (this.tiles[row][col] && this.tiles[row][col].isMoving) {
+                                anyMoving = true;
+                            }
+                        }
+                    }
+                    
+                    if (!anyMoving && this.swapInProgress) {
+                        //if this was a user-initiated swap, check its result after the visual swap
+                        if (this.pendingUserSwap) {
+                            const matches = this.findMatches();
+                            if (matches.length > 0) {
+                                //valid swap so clear pending and handle matches normally
+                                this.pendingUserSwap = null;
+                                this.handleMatches();
+                            } 
+                            else {
+                                //invalid swap so reverse with animation and show invalid overlay
+                                const t1 = this.pendingUserSwap.tile1;
+                                const t2 = this.pendingUserSwap.tile2;
+                                this.pendingUserSwap = null;
+                                this.invalidSwap = true;
+                                this.invalidSwapTiles = t1;
+                                this.invalidSwapTime = 0;
+                                this.reversingSwap = { tile1: t1, tile2: t2 };
+                                this.reverseSwap(t1, t2);
+                            }
+                        } 
+                        else if (this.justReversed) {
+                            //finished reversing an invalid swap clear flags
+                            this.swapInProgress = false;
+                            this.justReversed = false;
+                            this.invalidSwap = false;
+                            this.invalidSwapTiles = null;
+                            this.invalidSwapTime = 0;
+                            this.reversingSwap = null;
+                        } 
+                        else {
+                            //not a user swap if there are matches, handle them;
+                            //otherwise if no possible move exists, reshuffle the board
+                            const matches = this.findMatches();
+                            if (matches.length > 0) {
+                                this.handleMatches();
+                            } else {
+                                if (!this.hasPossibleMove()) {
+                                    this.reshuffleBoard();
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                draw() {
+                    //draw board background
+                    ctx.fillStyle = "rgba(30, 30, 60, 0.8)";
+                    ctx.fillRect(
+                        this.boardX - 5, 
+                        this.boardY - 5, 
+                        this.cols * this.tileSize + 10, 
+                        this.rows * this.tileSize + 10
+                    );
+                    
+                    //draw grid lines
+                    ctx.strokeStyle = "rgba(100, 100, 150, 0.3)";
+                    ctx.lineWidth = 1;
+                    for (let i = 0; i <= this.cols; i++) {
+                        ctx.beginPath();
+                        ctx.moveTo(this.boardX + i * this.tileSize, this.boardY);
+                        ctx.lineTo(this.boardX + i * this.tileSize, this.boardY + this.rows * this.tileSize);
+                        ctx.stroke();
+                    }
+                    for (let i = 0; i <= this.rows; i++) {
+                        ctx.beginPath();
+                        ctx.moveTo(this.boardX, this.boardY + i * this.tileSize);
+                        ctx.lineTo(this.boardX + this.cols * this.tileSize, this.boardY + i * this.tileSize);
+                        ctx.stroke();
+                    }
+                    
+                    //draw tiles
+                    for (let row = 0; row < this.rows; row++) {
+                        for (let col = 0; col < this.cols; col++) {
+                            const tile = this.tiles[row][col];
+                            if (tile) {
+                                const isDragging = tile === this.draggedTile;
+                                tile.draw(this.tileSize, isDragging);
+                            }
+                        }
+                    }
+
+                    //draw pool are
+                    const poolTop = 6;
+                    const poolHeight = this.tileSize + 8;
+                    ctx.save();
+                    ctx.fillStyle = "rgba(30, 30, 60, 0.8)";
+                    ctx.fillRect(0, poolTop, width, poolHeight);
+                    ctx.globalAlpha = 1;
+                    ctx.restore();
+
+                    //draw pooled tiles
+                    for (let i = 0; i < this.pool.tiles.length; i++) {
+                        const tile = this.pool.tiles[i];
+                        //ensure pooled tiles use pool visuals and are drawn above
+                        tile.draw(this.tileSize, false);
+                    }
+                    
+                    //draw invalid swap feedback
+                    if (this.invalidSwap && this.invalidSwapTiles) {
+                        const flashIntensity = Math.max(0, 1 - (this.invalidSwapTime / 0.3));
+                        const alphaFlash = flashIntensity * 0.4;
+                        
+                        ctx.fillStyle = `rgba(255, 80, 80, ${alphaFlash})`;
+                        ctx.fillRect(
+                            this.boardX - 5,
+                            this.boardY - 5,
+                            this.cols * this.tileSize + 10,
+                            this.rows * this.tileSize + 10
+                        );
+                    }
+                }
+                
+                handleInput(mouseScreenX, mouseScreenY, mouseDown) {
+                    //detect drag 
+                    const clickHappened = mouseDown && !this.wasMouseDown;
+                    const released = !mouseDown && this.wasMouseDown;
+                    this.wasMouseDown = mouseDown;
+                    
+                    if (clickHappened) {
+                        //start dragging a tile use global screenToWorld function
+                        const worldPos = screenToWorld(mouseScreenX, mouseScreenY);
+                        const scaledX = worldPos.x;
+                        const scaledY = worldPos.y;
+                        
+                        const tile = this.getTileAtPos(scaledX, scaledY);
+                        if (tile && !this.swapInProgress && !this.invalidSwap) {
+                            this.draggedTile = tile;
+                            this.draggedTile.beingDragged = true;
+                            this.draggedTileOriginal = { x: tile.x, y: tile.y, row: tile.row, col: tile.col };
+                            this.dragOffsetX = scaledX - tile.x;
+                            this.dragOffsetY = scaledY - tile.y;
+                        }
+                    } 
+                    else if (this.draggedTile && mouseDown) { 
+                        //update drag position
+                        const worldPos = screenToWorld(mouseScreenX, mouseScreenY);
+                        const scaledX = worldPos.x;
+                        const scaledY = worldPos.y;
+                        
+                        const targetX = scaledX - this.dragOffsetX;
+                        const targetY = scaledY - this.dragOffsetY;
+                        
+                        //directly set position
+                        this.draggedTile.x = targetX;
+                        this.draggedTile.y = targetY;
+                        
+                        //calc distance from original and apply size curve
+                        const distFromStart = Math.hypot(
+                            this.draggedTile.x - this.draggedTileOriginal.x,
+                            this.draggedTile.y - this.draggedTileOriginal.y
+                        );
+                        
+                        //size grows as drag distance increases (easing function)
+                        const maxDragDist = this.tileSize * 1.2;
+                        const sizeProgress = Math.min(distFromStart / maxDragDist, 1);
+                        this.draggedTile.scale = 1 + (sizeProgress * 0.3);
+                    } 
+                    else if (released && this.draggedTile) {
+                        //release the dragged tile
+                        //find grid cell at current position also
+                        const col = Math.round((this.draggedTile.x - this.boardX) / this.tileSize - 0.5);
+                        const row = Math.round((this.draggedTile.y - this.boardY) / this.tileSize - 0.5);
+                        
+                        let foundValidSwap = false;
+                        let targetTile = null;
+                        
+                        //check if the drop position is valid and adjacent
+                        if (col >= 0 && col < this.cols && row >= 0 && row < this.rows) {
+                            targetTile = this.tiles[row][col];
+                            
+                                    if (targetTile && targetTile !== this.draggedTile && 
+                                        this.areAdjacent(this.draggedTile, targetTile)) {
+                                        //perform the swap and mark it as user-initiated so we check after animation
+                                        this.pendingUserSwap = { tile1: this.draggedTile, tile2: targetTile };
+                                        this.swapTiles(this.draggedTile, targetTile);
+                                    }
+                        }
+                        
+                                //if not a valid drop (not adjacent or no target) animate back immediately
+                                if (!this.pendingUserSwap) {
+                                    this.invalidSwap = true;
+                                    this.invalidSwapTiles = this.draggedTile;
+                                    this.invalidSwapTime = 0;
+                                    this.draggedTile.targetX = this.draggedTileOriginal.x;
+                                    this.draggedTile.targetY = this.draggedTileOriginal.y;
+                                }
+                        
+                        //ensure  clear dragging flag on the tile
+                        if (this.draggedTile) this.draggedTile.beingDragged = false;
+                        this.draggedTile.scale = 1;
+                        this.draggedTile = null;
+                        this.draggedTileOriginal = null;
+                    }
+                }
+            }
+            
+            /** Tile floor, the part of the board where the tiles are laid out
+             *
+             * @class TileFloor
+             * @typedef {TileFloor}
+             */
+            class TileFloor {
+                constructor(tileSize = 85) {
+                    this.tileSize = 85;
+                    this.tiles = [];
+                }
+            }
+            
+
+            //initialize the tile board
+            this.tileBoard = new TileBoard(6, 6, 20, 120, 65);
+
+            
+        };
+        
+        /* Run the game */
+        App.prototype.runGame = function(DT) {
+            console.warn("hello");
+            //update tile board
+            if (this.tileBoard) {
+                this.tileBoard.update(DT);
+                this.tileBoard.handleInput(mouse.screenX, mouse.screenY, mouse.down);
+                this.tileBoard.draw();
+            }
+             
+        };
+        
+        /* Run the scenes */
+        App.prototype.scenes = function(DT) {
+            switch (window.scene) {
+                case "intro": {
+                    //only run intro in main window, not fullscreen popup
+                    if (!window.opener) {
+                        intro.run();
+                        
+                        //when intro finishes, transition to menu
+                        if (intro.prog > 360) {
+                            window.scene = "menu";
+                        }
+                    } else {
+                        //in popup/fullscreen, skip intro
+                        window.scene = "menu";
+                    }
+                    break;
+                }
+                case "menu": {
+                    ctx.fillStyle = "rgb(5, 5, 25)";
+                    ctx.fillRect(0, 0, width, height);
+                    break;
+                }
+                case "load": {
+                    if (!cache.loaded) {
+                        cache.load();
+                        ctx.fillStyle = "rgb(255, 255, 255)";
+                        ctx.fillRect(0, 0, width, height);
+                        ctx.font = "25px Arial";
+                        ctx.fillStyle = "rgb(35, 35, 35)";
+                        ctx.fillText("Loading", 300, 300);
+                    } else {
+                        window.scene = "game";
+                    }
+                    break;
+                }
+                case "game": {
+                    this.runGame(DT);
+                    break;
+                }
+                case "win": {
+                    ctx.fillStyle = "rgb(5, 5, 25)";
+                    ctx.fillRect(0, 0, width, height);
+                    
+                    ctx.save();
+                    ctx.fillStyle = "rgb(255, 215, 0)";
+                    ctx.font = "bold 72px Comfortaa";
+                    ctx.textAlign = "center";
+                    ctx.fillText("VICTORY!", width / 2, height / 2 - 80);
+                    
+                    ctx.fillStyle = "rgb(245, 245, 245)";
+                    ctx.font = "bold 36px Lato";
+                    
+                    //
+                    if (!this.winScoreEncoded) {
+                        this.finalScore = Math.ceil(this.score);
+                        this.encodedScore = btoa(Z.encode(this.finalScore));
+                        textToCopy = this.encodedScore;
+                        this.winScoreEncoded = true;
+                    }
+                    
+                    ctx.fillText("Final Score: " + this.finalScore, width / 2, height / 2);
+                    
+                    ctx.font = "24px Lato";
+                    ctx.fillText("Encoded: " + this.encodedScore, width / 2, height / 2 + 50);
+                    
+                    ctx.font = "20px Lato";
+                    ctx.globalAlpha = 0.7;
+                    ctx.fillText("Click 'Copy Score' to copy your encoded score!", width / 2, height / 2 + 90);
+                    
+                    // ctx.globalAlpha = 1;
+                    // ctx.font = "24px Lato";
+                    // ctx.fillText("Press SPACE to play again", width / 2, height / 2 + 130);
+                    // ctx.restore();
+                    
+                    //show copy button
+                    document.getElementById('copyButton').style.display = "block";
+                    
+                    if (keys[32]) {
+                        document.getElementById('copyButton').style.display = "none";
+                        this.winScoreEncoded = false; 
+                        this.resetGame();
+                        window.scene = "game";
+                    }
+                    break;
+                }
+                case "death": { 
+                    ctx.fillStyle = "rgb(25, 5, 5)";
+                    ctx.fillRect(0, 0, width, height);
+                    
+                    ctx.save();
+                    ctx.fillStyle = "rgb(255, 80, 80)";
+                    ctx.font = "bold 72px Comfortaa";
+                    ctx.textAlign = "center";
+                    ctx.fillText("DEFEAT", width / 2, height / 2 - 80);
+                    
+                    ctx.fillStyle = "rgb(245, 245, 245)";
+                    ctx.font = "bold 36px Lato";
+                    ctx.fillText("Score: " + Math.ceil(this.score), width / 2, height / 2);
+                    
+                    ctx.font = "24px Lato";
+                    ctx.globalAlpha = 0.7;
+                    ctx.fillText("You ran out of health!", width / 2, height / 2 + 50);
+                    
+                    ctx.globalAlpha = 1;
+                    ctx.font = "24px Lato";
+                    ctx.fillText("Press SPACE to try again", width / 2, height / 2 + 100);
+                    ctx.restore();
+                    
+                    if (keys[32]) {
+                        //clear both flags
+                        try {
+                            const rawSave = storage.getItem("dronemaker_save_v1");
+                            if (rawSave) {
+                                const save = JSON.parse(rawSave);
+                                save.isDead = false;
+                                save.playerHp = 10;
+                                storage.setItem("dronemaker_save_v1", JSON.stringify(save));
+                            }
+                        } catch (e) {
+                        }
+                        
+                        this.player.die = false;
+                        this.resetGame();
+                        window.scene = "game";
+                    }
+                    break;
+                }
+            }
+        };
+        
+        /* Run the application */
+        App.prototype.run = function(DT) {
+            this.scenes(DT);
+        };
+            
+        return App;
+    })();
+    
+    //intiate a new game
+    window.App = new Application({});
+    window.player = App.player;
+
+    //start a lightweight drawer for pool andd tilemap so they render on top
+    (function startTileDraw() {
+        function loop() {
+            if (window.App && window.App.tilePool && window.App.tileMap) {
+                //draw on main ctx
+                window.App.tilePool.draw(ctx);
+                window.App.tileMap.draw(ctx);
+            }
+            requestAnimationFrame(loop);
+        }
+        requestAnimationFrame(loop);
+    })();
+
+
+    console.createGraph("fps: low buffer", () => fps, {
+        width: 240,
+        height: 48,
+        //note to self, this only should take in hex codes
+        color: "#9ad0ff",
+
+        buffer: 60,
+        min: 0,
+        max: 120,
+    });
+
+
+    //a render loop with a timestamp for dt updating @Judges
+    const render = (timestamp) => {
+        try {
+            //prefer the rAF timestamp when present
+            const now = typeof timestamp === "number" ? timestamp : performance.now();
+
+            //dt in milliseconds, never negative
+            dtMs = Math.max(0, now - lastTime);
+            lastTime = now;
+
+            //dt in seconds (clamped to avoid huge jumps after tab hidden)
+            dt = Math.min(dtMs / 1000, 0.1);
+            fps = dtMs > 0 ? Math.round(1000 / dtMs) : fps;
+
+            //console.log("deltaTime", dt);
+
+            ctx.setTransform(dprVal, 0, 0, dprVal, 0, 0);
+            ctx.clearRect(0, 0, canvas.width / dprVal, canvas.height / dprVal);
+
+            //run the game based on deltatime
+            App.run(dt);
+            
+            //@Judges DT makes this run smoothly on any device with any framerate
+
+            //reset events
+            mouse.released = false;
+            mouse.clicked = false;
+            
+            const button2 = document.getElementById("reload");
+    
+            // //clear local storage
+            // const clearLocal = () => {
+            //     storage.clear();
+            //     //alert(JSON.stringify(storage))
+            // };
+        
+            button2.addEventListener("click", () => {
+                if (App && typeof App.resetGame === 'function') {
+                    App.resetGame();
+                }
+            });
+                        
+            //frameCount
+            frameCount++;
+        } catch (e) {
+            console.error("Main loop error" + JSON.stringify(e.stack));
+        }
+    };
+
+    //Replace interval with rAF
+    let rafId = null;
+    let running = true;
+
+    //pause when tab hidden to avoid wasted frames @Judges
+    document.addEventListener("visibilitychange", () => {
+        running = !document.hidden;
+        if (running && rafId === null) {
+            rafId = requestAnimationFrame(loop);
+        }
+        if (!running && rafId !== null) {
+            cancelAnimationFrame(rafId);
+            rafId = null;
+        }
+    });
+    /**
+    * main animation loop that requests frames and triggers rendering while the game is running
+    * @param {number} now - the current timestamp provided by requestanimationframe
+    * @returns {void}
+    */
+    function loop(now) {
+        //if (!debug.freeze) {
+        if (!running) {
+            rafId = null;
+            return;
+        }
+        render(now);
+        rafId = requestAnimationFrame(loop);
+        //}
+        //console.info(debug.freeze);
+    }
+
+    //start
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(loop);
+
+    // if (loopTimer) window.clearInterval(loopTimer);
+    // var loopTimer = window.setInterval(render, 1000/60);
+    
+    window.addEventListener("keydown", (e) => {
+        if (e.which === 192) { 
+            showThumb();
+        }
+        e.preventDefault();
+        keys[e.which] = true;
+    });
+    window.addEventListener("keyup", (e) => {
+        if (e.which === 192) {
+            hideThumb();
+        }
+        e.preventDefault();
+        keys[e.which] = false;
+    });
+
+    //add mouse events
+    window.addEventListener("click", (e) => {
+        //e.preventDefault();
+        mouse.clicked = true;
+    });
+    window.addEventListener("mouseup", (e) => {
+        //e.preventDefault();
+        mouse.released = true;
+        mouse.down = false;
+    });
+    window.addEventListener("mousedown", (e) => {
+        //e.preventDefault();
+        mouse.down = true;
+    });
+    window.addEventListener("mousedown", (e) => {
+        if (e.button === 2) {
+            mouse.rightDown = true;
+            mouse.rightReleased = false;
+        } else if (e.button === 0) {
+            mouse.down = true;
+            mouse.released = false;
+        }
+    });
+
+    window.addEventListener("mouseup", (e) => {
+        if (e.button === 2) {
+            mouse.rightDown = false;
+            mouse.rightReleased = true;
+        } else if (e.button === 0) {
+            mouse.down = false;
+            mouse.released = true;
+        }
+    });
+    window.addEventListener("contextmenu", (e) => {
+        //disableContextMenu to allow for right clicks in game
+        e.preventDefault();
+    });
+
+    //prevents focus spam
+    window.addEventListener("blur", () => {
+        mouse.down = false;
+        mouse.rightDown = false;
+    });
+    //store mouse in world coordinates
+    window.addEventListener("mousemove", (e) => {
+        mouse.screenX = e.clientX;
+        mouse.screenY = e.clientY;
+    
+        //convert screen to world CORRECTLY
+        const worldPos = screenToWorld(e.clientX, e.clientY);
+        mouse.x = worldPos.x; 
+        mouse.y = worldPos.y; 
+    });
+    
+    /**
+     * converts world coordinates to screen coordinates by applying camera translation and scale
+     * @param {number} worldx - the horizontal position in the game world
+     * @param {number} worldy - the vertical position in the game world
+     * @returns {object} an object containing the calculated x and y screen coordinates
+     */
+    function worldToScreen(worldX, worldY) {
+        const totalScale = App.cam.z * displayScale;
+        
+        //apply camera translation
+        const camX = worldX - App.cam.x + App.cam.align.x - (App.shake.x || 0);
+        const camY = worldY - App.cam.y + App.cam.align.y - (App.shake.y || 0);
+        
+        //then apply scaling
+        const screenX = camX * totalScale;
+        const screenY = camY * totalScale;
+        
+        return { 
+            x: screenX, 
+            y: screenY
+        };
+    }
+
+    //get fullscreen icon
+    const button = document.getElementById("fullscreen");
+
+    //Event
+    window.addEventListener("resize", function() {
+        resizeCanvasAndScale();
+        if (typeof minimap !== "undefined" && minimap.init) minimap.init();
+    });
+    
+    //intiate...
+    const openInFullscreen = () => {
+        sessionStorage.setItem('skipMenu', 'true');
+        
+        const w = window.open();
+        w.document.open();
+        w.document.write(
+            `<!doctype html><html>${document.querySelector("html").innerHTML}</html>`,
+        );
+        w.document.close();
+    };
+    
+    
+    //add the event listener
+    button.addEventListener("click", openInFullscreen); 
+    
+    
+    firstFrame = false;
+
+    return {
+        Application,
+        render,
+    };
+})();
+
+//document.getElementById("thumb").style.display = "none";
+document.getElementById("game").style.border = "none";
+
+
+    </script>
+</html> 
+
+
+
+
+
+
+
+
+
+
