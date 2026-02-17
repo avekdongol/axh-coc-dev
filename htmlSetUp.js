@@ -1,6 +1,12 @@
 /* 
     Setup HTML Canvas. Scale Canvas. Frames. Console.
 */
+/**
+ * Initializes the main game canvas, overlay canvas, rendering context, display scaling,
+ * basic timing variables and a developer console. Returns an object exposing these
+ * values for use by the rest of the application.
+ * @returns {{canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, overlayCanvas: HTMLCanvasElement, octx: CanvasRenderingContext2D, width:number, height:number, dprVal:number, displayScale:number, frameCount:number, firstFrame:boolean, lastTime:number, dtMs:number, dt:number, fps:number, cam:Object, console:Log, shampoedNoodlesAndBacon:string, windowResized:boolean}}
+ */
 let { shampoedNoodlesAndBacon, canvas, ctx, width, height, dprVal, displayScale, frameCount, firstFrame, lastTime, dtMs, dt, fps, cam, console, overlayCanvas, octx, windowResized } = (function setUp() {
     //configure HTML5 Canvas
     const theCanvas = document.getElementById("game");
@@ -62,6 +68,11 @@ let { shampoedNoodlesAndBacon, canvas, ctx, width, height, dprVal, displayScale,
      * @function
      * @returns {void}
      */
+    /**
+     * Resize the canvas elements to match the window and scale according to devicePixelRatio.
+     * Updates global `width`, `height`, `displayScale`, and canvas internal sizes.
+     * @returns {void}
+     */
     function resizeCanvasAndScale() {
         /* 
             @Judges - This function is used to scale the canvas up to a specified dimension. Making it based on the height of the page only allows me to set it at a perfecct 1:1 aspect ratio. The reason this is so fast is because it scales it up with window.devicePixelRation and uses the built in canvas functions for transformations (setTransform) 
@@ -120,11 +131,18 @@ let { shampoedNoodlesAndBacon, canvas, ctx, width, height, dprVal, displayScale,
     resizeCanvasAndScale();
 
     //full fledged logger for easy debugging, graphing, and benchmarking. Uses a local canvas
+    /**
+     * Lightweight DOM-backed logger with optional small graph canvases.
+     * Used for debug output and simple numeric graphs.
+     */
     class Log {
         /*
       Created by Arrow (December of 2025)
       https://www.khanacademy.org/profile/kaid_5229809678324099512179597/projects
     */
+        /**
+         * @param {string} elementId - The DOM id used for the console container element.
+         */
         constructor(elementId) {
             this.consoleElement = document.getElementById(elementId);
 
@@ -157,6 +175,12 @@ let { shampoedNoodlesAndBacon, canvas, ctx, width, height, dprVal, displayScale,
         }
 
         //stringify values helper
+        /**
+         * Safely stringify a value for display in the console.
+         * @private
+         * @param {*} v - Any value to stringify.
+         * @returns {string}
+         */
         _stringify(v) {
             try {
                 if (typeof v === "object" && v !== null)
@@ -168,6 +192,11 @@ let { shampoedNoodlesAndBacon, canvas, ctx, width, height, dprVal, displayScale,
         }
 
         //log, warning, error, info. Not really the best implementation/copy of the real deal, but I am going for practicallity over functionality
+        /**
+         * Store a log entry and re-render the console.
+         * @param {string} key
+         * @param {*} value
+         */
         log(key, value) {
             if (arguments.length < 2) {
                 return;
@@ -175,20 +204,39 @@ let { shampoedNoodlesAndBacon, canvas, ctx, width, height, dprVal, displayScale,
             this.logs.set(key, this._stringify(value));
             this.render();
         }
+        /**
+         * Store a warning entry.
+         * @param {string} key
+         * @param {*} value
+         */
         warn(key, value) {
             this.warnings.set(key, this._stringify(value));
             this.render();
         }
+        /**
+         * Store an error entry.
+         * @param {string} key
+         * @param {*} value
+         */
         error(key, value) {
             this.errors.set(key, this._stringify(value));
             this.render();
         }
+        /**
+         * Store an info entry.
+         * @param {string} key
+         * @param {*} value
+         */
         info(key, value) {
             this.infos.set(key, this._stringify(value));
             this.render();
         }
 
         //render everything to the DOM
+        /**
+         * Rebuilds the console DOM content including text and any attached graph canvases.
+         * @returns {void}
+         */
         render() {
             let outputHTML = `${this.baseMessage}\n`;
 
@@ -220,6 +268,10 @@ let { shampoedNoodlesAndBacon, canvas, ctx, width, height, dprVal, displayScale,
             }
         }
 
+        /**
+         * Clears all stored messages and logs the clear action.
+         * @returns {void}
+         */
         clear() {
             this.info("Console cleared");
             this.logs.clear();
@@ -230,6 +282,14 @@ let { shampoedNoodlesAndBacon, canvas, ctx, width, height, dprVal, displayScale,
         }
 
         //yay graphs!
+        /**
+         * Create a small graph canvas attached to the console that periodically samples
+         * numeric values from `getter` and plots a rolling history.
+         * @param {string} key - Unique identifier for the graph.
+         * @param {Function|number} getter - Function that returns the current numeric value or a numeric value.
+         * @param {Object} [opts] - Optional graph rendering options.
+         * @returns {HTMLCanvasElement} The created canvas element.
+         */
         createGraph(key, getter, opts = {}) {
             /**
              * key: string id
@@ -302,6 +362,11 @@ let { shampoedNoodlesAndBacon, canvas, ctx, width, height, dprVal, displayScale,
             return canvas;
         }
 
+        /**
+         * Remove and destroy the graph associated with `key`.
+         * @param {string} key
+         * @returns {void}
+         */
         removeGraph(key) {
             const entry = this.graphs.get(key);
             if (!entry) {
@@ -321,6 +386,10 @@ let { shampoedNoodlesAndBacon, canvas, ctx, width, height, dprVal, displayScale,
             }
         }
 
+        /**
+         * Sample all registered graphs and redraw their canvases. Called by the internal RAF loop.
+         * @returns {void}
+         */
         updateGraphs() {
             if (!this.graphs || this.graphs.size === 0) {
                 return;
@@ -429,6 +498,10 @@ let { shampoedNoodlesAndBacon, canvas, ctx, width, height, dprVal, displayScale,
         }
 
         //rAF driven updating system. Trying to avoid crashing the main loop from all our graphiness
+        /**
+         * Start the requestAnimationFrame-driven graph update loop.
+         * @private
+         */
         _startGraphAutoUpdate() {
             if (this._graphAutoFrame) return;
             const tick = () => {
@@ -447,6 +520,10 @@ let { shampoedNoodlesAndBacon, canvas, ctx, width, height, dprVal, displayScale,
         }
 
         //what does this do?
+        /**
+         * Stop the internal graph RAF loop.
+         * @private
+         */
         _stopGraphAutoUpdate() {
             if (this._graphAutoFrame) {
                 cancelAnimationFrame(this._graphAutoFrame);
@@ -455,7 +532,13 @@ let { shampoedNoodlesAndBacon, canvas, ctx, width, height, dprVal, displayScale,
         }
 
         //I hate this function as much as you do. Allows me to use hex colors
-        static _hexToRGBA(hex, alpha = 1) {
+           /**
+            * Convert a hex color or rgb/rgba string to an rgba() string with the provided alpha.
+            * @param {string} hex
+            * @param {number} [alpha=1]
+            * @returns {string}
+            */
+           static _hexToRGBA(hex, alpha = 1) {
             /* 
                  Color conversion. Fetched from stackoverflow with love
             */

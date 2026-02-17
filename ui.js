@@ -1,6 +1,11 @@
 /* 
     User input, Image loading, Graphics
 */
+/**
+ * Initialize user input helpers and an image cache used by the renderer
+ * Exposes `keys`, `mouse`, `cache`, and `img` for global use.
+ * @returns {{keys:Object, mouse:Object, cache:Cache, img:Function}}
+ */
 const { keys, mouse, cache, img } = (function gameSetup() {
     //user input methods
     let k = {};
@@ -56,6 +61,11 @@ const { keys, mouse, cache, img } = (function gameSetup() {
         },
     ];
     Cache = (function () {
+        /**
+         * Simple image cache that pre-renders small bitmaps using OffscreenCanvas
+         * and stores ImageBitmap objects for fast drawing.
+         * @constructor
+         */
         Cache = function (that) {
             this.loaded = false;
             this.imgIndex = 0;
@@ -63,6 +73,11 @@ const { keys, mouse, cache, img } = (function gameSetup() {
             this.img = [];
         };
         Cache.prototype = {
+            /**
+             * Kick off loading/processing of images defined in `imagesToLoad`.
+             * Uses OffscreenCanvas.transferToImageBitmap for performance.
+             * @returns {boolean|undefined} Returns true when fully loaded.
+             */
             load: function () { 
                 /* 
                     @Judges - This thing is blazing fast because it is running with transferToImageBitmap() and another offscreen canvas
@@ -98,6 +113,13 @@ const { keys, mouse, cache, img } = (function gameSetup() {
     })();
     let _cache = new Cache();
 
+    /**
+     * Convenience wrapper around `ctx.drawImage` that only draws when the cache is ready.
+     * @param {CanvasImageSource|ImageBitmap} that - Image or bitmap to draw.
+     * @param {number} x - Destination X coordinate.
+     * @param {number} y - Destination Y coordinate.
+     * @returns {void}
+     */
     function img(that, x, y) {
         if (_cache.loaded) {
             return ctx.drawImage(that, x, y);

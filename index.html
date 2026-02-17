@@ -144,7 +144,8 @@
             ctx.bezierCurveTo(196,203,200,201,207,211);
             ctx.stroke();
             ctx.closePath();
-            
+             
+             
             
             ctx.beginPath();
             ctx.lineTo(224,206);
@@ -220,8 +221,12 @@
     window.scene = "load";
     
     /**
-    * converts screen coordinates to canvas coordinates
-    */
+     * Convert DOM screen coordinates to canvas (world) coordinates taking CSS
+     * layout into account.
+     * @param {number} screenX - Client X coordinate from mouse event.
+     * @param {number} screenY - Client Y coordinate from mouse event.
+     * @returns {{x:number,y:number}} Coordinates in canvas space.
+     */
     function screenToWorld(screenX, screenY) {
         //get canvas position and dimensions
         const rect = canvas.getBoundingClientRect();
@@ -243,8 +248,17 @@
             this.app = App;
             
             
-            //tile class
+            /**
+             * Represents a single tile in the grid. Stores visual state and
+             * provides simple update/draw helpers for smooth animation.
+             */
             class Tile {
+                /**
+                 * Create a Tile instance.
+                 * @param {number} col - Column index on the board.
+                 * @param {number} row - Row index on the board.
+                 * @param {number} [colorIndex=0] - Index into `tileColors` for visual color.
+                 */
                 constructor(col, row, colorIndex = 0) {
                     this.col = col;
                     this.row = row;
@@ -275,6 +289,14 @@
                     }
                 }
 
+                /**
+                 * Calculate and update the tile's target position based on grid coordinates.
+                 * If the tile is not currently moving, snap its displayed position to the target.
+                 * @param {number} tileSize
+                 * @param {number} boardX
+                 * @param {number} boardY
+                 * @returns {void}
+                 */
                 updatePosition(tileSize, boardX, boardY) {
                     this.targetX = boardX + this.col * tileSize + tileSize / 2;
                     this.targetY = boardY + this.row * tileSize + tileSize / 2;
@@ -285,6 +307,12 @@
                     }
                 }
 
+                /**
+                 * Progress the tile's animation toward its target position and
+                 * update visual properties such as `scale` and `opacity`.
+                 * @param {number} dt - Delta time in seconds since last frame.
+                 * @returns {void}
+                 */
                 animate(dt) {
                     //dont animate while user is dragging this tile
                     if (this.beingDragged) return;
@@ -327,6 +355,12 @@
                     }
                 }
 
+                /**
+                 * Render the tile to the global `ctx` canvas context.
+                 * @param {number} tileSize - Size used for drawing calculations.
+                 * @param {boolean} [isDragging=false] - Whether the tile is currently being dragged (affects styling).
+                 * @returns {void}
+                 */
                 draw(tileSize, isDragging = false) {
                     ctx.globalAlpha = this.opacity;
                     ctx.save();
@@ -379,9 +413,19 @@
                 }
             }
             
-            //tile Grid
+            /**
+             * Small left-side pool of tiles (spare tiles). Manages positions for
+             * pooled tiles and supports dragging from the pool.
+             */
             class TilePool {
-                constructor(tileSize, left = 10, top = 10) {
+                /**
+                 * Create a TilePool to hold spare tiles displayed beside the board.
+                 * @param {number} tileSize
+                 * @param {number} [left=10]
+                 * @param {number} [top=10]
+                 * @param {Object} [parent=null] - Reference to parent TileBoard for board coordinates and right grid.
+                 */
+                constructor(tileSize, left = 10, top = 10, parent = null) {
                     this.tileSize = tileSize;
                     this.left = left;
                     this.top = top;
@@ -396,8 +440,14 @@
                     this.invalidDrop = false;
                     this.invalidDropTile = null;
                     this.invalidDropTime = 0;
+                    this.parent = parent;
                 }
 
+                /**
+                 * Compute the drawing target position for a pooled slot index.
+                 * @param {number} slot
+                 * @returns {{x:number,y:number}}
+                 */
                 getTarget(slot) {
                     const x = this.left + slot * this.spacing + this.tileSize / 2;
                     const y = this.top + this.tileSize / 2;
@@ -407,14 +457,19 @@
                     };
                 }
 
+                /**
+                 * Add a tile to the end of the pool and position it.
+                 * @param {Tile} tile
+                 * @returns {void}
+                 */
                 add(tile) {
                     const slot = this.tiles.length;
                     tile.poolIndex = slot;
-                    //enforce consistent visuals when entering pool
                     tile.inPool = true;
                     tile.toBePooled = false;
                     tile.isMoving = false;
                     tile.beingDragged = false;
+                    tile.matched = false;
                     tile.scale = 1;
                     tile.opacity = 1;
                     tile.rotation = 0;
@@ -427,6 +482,12 @@
                     this.tiles.push(tile);
                 }
 
+                /**
+                 * Insert a tile at the specified pool index, shifting others.
+                 * @param {Tile} tile
+                 * @param {number} idx
+                 * @returns {void}
+                 */
                 insertAt(tile, idx) {
                     //insert back into pool at index and renumber
                     this.tiles.splice(idx, 0, tile);
@@ -440,6 +501,11 @@
                     }
                 }
 
+                /**
+                 * Remove a tile from the pool and re-layout remaining tiles.
+                 * @param {Tile} tile
+                 * @returns {void}
+                 */
                 remove(tile) {
                     const idx = this.tiles.indexOf(tile);
                     if (idx >= 0) this.tiles.splice(idx, 1);
@@ -454,11 +520,17 @@
                     }
                 }
 
+                /**
+                 * Find a pooled tile at the given world coordinates (center-based hit test).
+                 * @param {number} x
+                 * @param {number} y
+                 * @returns {Tile|null}
+                 */
                 getTileAtPos(x, y) {
-                    // tile "radius" (half the side length, very convenient for center coordinates)
+                    //tile "radius" (half the side length, very convenient for center coordinates)
                     const rad = this.tileSize / 2;
 
-                    // check tiles in backwards order, because that's front to back
+                    //check tiles in backwards order, because that's front to back
                     for (let i = this.tiles.length - 1; i >= 0; i --) {
                         const {x: tileX, y: tileY} = this.getTarget(i);
                         if (
@@ -471,14 +543,17 @@
                     return null;
                 }
 
+                /**
+                 * Handle pointer input for starting, updating, and ending drags on pooled tiles.
+                 * Reads global `mouse` state and updates pool/tiles accordingly.
+                 * @returns {void}
+                 */
                 handleInput() {
                     const { screenX, screenY, down, wasDown } = mouse;
-                    // detect drag 
                     const clickHappened = down && !wasDown;
                     const released = !down && wasDown;
 
                     if (clickHappened) {
-                        // start dragging a tile, use global screenToWorld function
                         const {x: scaledX, y: scaledY} = screenToWorld(screenX, screenY);
                         const tile = this.getTileAtPos(scaledX, scaledY);
                         if (tile) {
@@ -488,156 +563,77 @@
                             this.dragOffsetX = scaledX - tile.x;
                             this.dragOffsetY = scaledY - tile.y;
                         }
-                    } else if (this.draggedTile && down) { 
-                        //update drag position
+                    } 
+                    else if (this.draggedTile && down) {
                         const {x: scaledX, y: scaledY} = screenToWorld(screenX, screenY);
-                        
                         const targetX = scaledX - this.dragOffsetX;
                         const targetY = scaledY - this.dragOffsetY;
-                        
-                        // directly set position
                         [this.draggedTile.x, this.draggedTile.y] = [targetX, targetY];
-                        
-                        //calc distance from original and apply size curve
+
                         const distFromStart = Math.hypot(
                             this.draggedTile.x - this.draggedTileOriginal.x,
                             this.draggedTile.y - this.draggedTileOriginal.y
                         );
-                        
-                        //size grows as drag distance increases (easing function)
                         const maxDragDist = this.tileSize * 1.2;
                         const sizeProgress = Math.min(distFromStart / maxDragDist, 1);
                         this.draggedTile.scale = 1 + (sizeProgress * 0.3);
+
                     } 
                     else if (released && this.draggedTile) {
-                        //release the dragged tile
-                        //find grid cell at current position also
-                        const col = Math.round((this.draggedTile.x - this.boardX) / this.tileSize - 0.5);
-                        const row = Math.round((this.draggedTile.y - this.boardY) / this.tileSize - 0.5);
-                        
-                        let foundValidSwap = false;
-                        let targetTile = null;
-                        /*
-                        //check if the drop position is valid and adjacent
-                        if (col >= 0 && col < this.cols && row >= 0 && row < this.rows) {
-                            targetTile = this.tiles[row][col];
-                            
-                                    if (targetTile && targetTile !== this.draggedTile && 
-                                        this.areAdjacent(this.draggedTile, targetTile)) {
-                                        //perform the swap and mark it as user-initiated so we check after animation
-                                        this.pendingUserSwap = { tile1: this.draggedTile, tile2: targetTile };
-                                        this.swapTiles(this.draggedTile, targetTile);
-                                    }
+                        let placed = false;
+
+                        //use window.App.rightGrid
+                        if (window.App && window.App.rightGrid) {
+                            const placeCell = window.App.rightGrid.getCellAtPos(
+                                this.draggedTile.x, this.draggedTile.y
+                            );
+                            if (placeCell) {
+                                const foundCell = window.App.rightGrid.tiles.find(
+                                    cell => cell.row == placeCell.row && cell.col == placeCell.col
+                                );
+                                if (!foundCell) {
+                                    window.App.rightGrid.placeTile(this.draggedTile, placeCell.col, placeCell.row);
+                                    this.remove(this.draggedTile);
+                                    placed = true;
+                                    this.draggedTile.beingDragged = false;
+                                    this.draggedTile.scale = 1;
+                                    this.draggedTile = null;
+                                    this.draggedTileOriginal = null;
+                                    return;
+                                }
+                            }
                         }
-                        
-                        //if not a valid drop (not adjacent or no target) animate back immediately
-                        if (!this.pendingUserSwap) {*/
+
+                        if (!placed) {
                             this.invalidDrop = true;
                             this.invalidDropTile = this.draggedTile;
                             this.invalidDropTime = 0;
                             this.invalidDropTile.targetX = this.draggedTileOriginal.x;
                             this.invalidDropTile.targetY = this.draggedTileOriginal.y;
+                            this.invalidDropTile.isMoving = true;
+                        }
 
-                            const tile = this.invalidDropTile;
-                            //tile.x = tile.targetX;
-                            //tile.y = tile.targetY;
-                            tile.isMoving = true;
-                        //}
-                        
-                        // ensure clear dragging flag on the tile
                         if (this.draggedTile) this.draggedTile.beingDragged = false;
-                        this.draggedTile.scale = 1;
+                        if (this.draggedTile) this.draggedTile.scale = 1;
                         this.draggedTile = null;
                         this.draggedTileOriginal = null;
                     }
-                    /*
-                    if (clickHappened) {
-                        //start dragging a tile use global screenToWorld function
-                        const worldPos = screenToWorld(screenX, screenY);
-                        const scaledX = worldPos.x;
-                        const scaledY = worldPos.y;
-                        
-                        const tile = this.getTileAtPos(scaledX, scaledY);
-                        if (tile && !this.swapInProgress && !this.invalidSwap) {
-                            this.draggedTile = tile;
-                            this.draggedTile.beingDragged = true;
-                            this.draggedTileOriginal = { x: tile.x, y: tile.y, row: tile.row, col: tile.col };
-                            this.dragOffsetX = scaledX - tile.x;
-                            this.dragOffsetY = scaledY - tile.y;
-                        }
-                    } 
-                    else if (this.draggedTile && mouseDown) { 
-                        //update drag position
-                        const worldPos = screenToWorld(screenX, screenY);
-                        const scaledX = worldPos.x;
-                        const scaledY = worldPos.y;
-                        
-                        const targetX = scaledX - this.dragOffsetX;
-                        const targetY = scaledY - this.dragOffsetY;
-                        
-                        //directly set position
-                        this.draggedTile.x = targetX;
-                        this.draggedTile.y = targetY;
-                        
-                        //calc distance from original and apply size curve
-                        const distFromStart = Math.hypot(
-                            this.draggedTile.x - this.draggedTileOriginal.x,
-                            this.draggedTile.y - this.draggedTileOriginal.y
-                        );
-                        
-                        //size grows as drag distance increases (easing function)
-                        const maxDragDist = this.tileSize * 1.2;
-                        const sizeProgress = Math.min(distFromStart / maxDragDist, 1);
-                        this.draggedTile.scale = 1 + (sizeProgress * 0.3);
-                    } 
-                    else if (released && this.draggedTile) {
-                        //release the dragged tile
-                        //find grid cell at current position also
-                        const col = Math.round((this.draggedTile.x - this.boardX) / this.tileSize - 0.5);
-                        const row = Math.round((this.draggedTile.y - this.boardY) / this.tileSize - 0.5);
-                        
-                        let foundValidSwap = false;
-                        let targetTile = null;
-                        
-                        //check if the drop position is valid and adjacent
-                        if (col >= 0 && col < this.cols && row >= 0 && row < this.rows) {
-                            targetTile = this.tiles[row][col];
-                            
-                                    if (targetTile && targetTile !== this.draggedTile && 
-                                        this.areAdjacent(this.draggedTile, targetTile)) {
-                                        //perform the swap and mark it as user-initiated so we check after animation
-                                        this.pendingUserSwap = { tile1: this.draggedTile, tile2: targetTile };
-                                        this.swapTiles(this.draggedTile, targetTile);
-                                    }
-                        }
-                        
-                                //if not a valid drop (not adjacent or no target) animate back immediately
-                                if (!this.pendingUserSwap) {
-                                    this.invalidSwap = true;
-                                    this.invalidSwapTile = this.draggedTile;
-                                    this.invalidSwapTime = 0;
-                                    this.draggedTile.targetX = this.draggedTileOriginal.x;
-                                    this.draggedTile.targetY = this.draggedTileOriginal.y;
-                                }
-                        
-                        //ensure  clear dragging flag on the tile
-                        if (this.draggedTile) this.draggedTile.beingDragged = false;
-                        this.draggedTile.scale = 1;
-                        this.draggedTile = null;
-                        this.draggedTileOriginal = null;
-                    }*/
                 }
 
+                /**
+                 * Update pool-level timed state (e.g. invalid-drop animations).
+                 * @param {number} dt - Delta time in seconds.
+                 * @returns {void}
+                 */
                 update(dt) {
                     if (this.invalidDrop && this.invalidDropTile) {
                         this.invalidDropTime += dt;
                         const tile = this.invalidDropTile;
                         const dist = Math.hypot(tile.targetX - tile.x, tile.targetY - tile.y);
-                        window.console.log(tile)
 
                         tile.animate(dt);
 
-                        // when tile reaches original position, clear invalid swap
+                        //when tile reaches original position, clear invalid swap
                         if (dist < 2) {
                             this.invalidDrop = false;
                             this.invalidDropTile = null;
@@ -675,7 +671,19 @@
                 }
             }
 
+            /**
+             * The main tile board class. Contains a 2D grid of `Tile` objects,
+             * handles swapping, gravity, match detection, and board updates.
+             */
             class TileBoard {
+                /**
+                 * Create a TileBoard that manages the grid of tiles and game mechanics.
+                 * @param {number} [cols=6]
+                 * @param {number} [rows=6]
+                 * @param {number} [boardX=20]
+                 * @param {number} [boardY=120]
+                 * @param {number} [tileSize=85]
+                 */
                 constructor(cols = 6, rows = 6, boardX = 20, boardY = 120, tileSize = 85) {
                     this.cols = cols;
                     this.rows = rows;
@@ -683,7 +691,7 @@
                     this.boardY = boardY;
                     this.tileSize = tileSize;
                     this.tiles = [];
-                    this.pool = new TilePool(this.tileSize, 12, 12, 8);
+                    this.pool = new TilePool(this.tileSize, 12, 12, this);
                     this.selectedTile = null;
                     this.draggedTile = null;
                     this.draggedTileOriginal = null;
@@ -709,6 +717,11 @@
                     this.initBoard();
                 }
                 
+                /**
+                 * Initialize or regenerate the board until no initial matches exist
+                 * and at least one possible move is present.
+                 * @returns {void}
+                 */
                 initBoard() {
                     //fill board regenerate entire board until no initial connected matches exist
                     const makeBoard = () => {
@@ -730,10 +743,22 @@
                 }
                 
                 //initial board will be regenerated if any connected matches are present
+                /**
+                 * Check whether a tile placement is valid. Placeholder that currently always returns true.
+                 * @param {number} col
+                 * @param {number} row
+                 * @returns {boolean}
+                 */
                 isTileValid(col, row) {
                     return true;
                 }
                 
+                /**
+                 * Return the tile at world coordinates, or null if none.
+                 * @param {number} x
+                 * @param {number} y
+                 * @returns {Tile|null}
+                 */
                 getTileAtPos(x, y) {
                     const col = Math.floor((x - this.boardX) / this.tileSize);
                     const row = Math.floor((y - this.boardY) / this.tileSize);
@@ -744,6 +769,12 @@
                     return null;
                 }
                 
+                /**
+                 * Handle selection of a tile. If a different tile is already selected,
+                 * attempt to swap if adjacent.
+                 * @param {Tile} tile
+                 * @returns {void}
+                 */
                 selectTile(tile) {
                     if (this.swapInProgress) return;
                     
@@ -762,12 +793,24 @@
                     }
                 }
                 
+                /**
+                 * Test whether two tiles are adjacent on the grid.
+                 * @param {Tile} tile1
+                 * @param {Tile} tile2
+                 * @returns {boolean}
+                 */
                 areAdjacent(tile1, tile2) {
                     const colDiff = Math.abs(tile1.col - tile2.col);
                     const rowDiff = Math.abs(tile1.row - tile2.row);
                     return (colDiff === 1 && rowDiff === 0) || (colDiff === 0 && rowDiff === 1);
                 }
                 
+                /**
+                 * Swap two tiles in the grid and set them moving toward updated targets.
+                 * @param {Tile} tile1
+                 * @param {Tile} tile2
+                 * @returns {void}
+                 */
                 swapTiles(tile1, tile2) {
                     //swap positions in grid
                     [this.tiles[tile1.row][tile1.col], this.tiles[tile2.row][tile2.col]] =
@@ -794,6 +837,12 @@
                     this.swapInProgress = true;
                 }
                 
+                /**
+                 * Reverse a previously performed swap (animation-aware).
+                 * @param {Tile} tile1
+                 * @param {Tile} tile2
+                 * @returns {void}
+                 */
                 reverseSwap(tile1, tile2) {
                     //reverse a swap with animation
                     [this.tiles[tile1.row][tile1.col], this.tiles[tile2.row][tile2.col]] =
@@ -819,6 +868,11 @@
                     this.swapInProgress = true;
                 }
                 
+                /**
+                 * Find connected components of tiles that satisfy matching rules.
+                 * Returns an array of matched tiles.
+                 * @returns {Tile[]}
+                 */
                 findMatches() {
                     //find connected components where tiles have same color and both have indicators on the touching side
                     const matched = [];
@@ -876,6 +930,10 @@
                     return matched;
                 }
                 
+                /**
+                 * Mark matched tiles for pooling and initiate their movement into the pool.
+                 * @returns {void}
+                 */
                 handleMatches() {
                     let matched = this.findMatches();
 
@@ -906,6 +964,10 @@
                     this.swapInProgress = true;
                 }
                 
+                /**
+                 * Apply gravity to the board so tiles fall down into empty spaces.
+                 * @returns {void}
+                 */
                 applyGravity() {
                     for (let col = 0; col < this.cols; col++) {
                         let writePos = this.rows - 1;
@@ -936,6 +998,10 @@
                     }
                 }
                 
+                /**
+                 * Fill empty slots on the board by creating new tiles and then check for cascades.
+                 * @returns {void}
+                 */
                 fillGaps() {
                     for (let col = 0; col < this.cols; col++) {
                         for (let row = 0; row < this.rows; row++) {
@@ -958,6 +1024,10 @@
                     }, 400);
                 }
 
+                /**
+                 * Determine whether there exists at least one legal adjacent swap that would create a match.
+                 * @returns {boolean}
+                 */
                 hasPossibleMove() {
                     //returns true if there exists at least one adjacent swap that would create a match
                     const inBounds = (r, c) => r >= 0 && r < this.rows && c >= 0 && c < this.cols;
@@ -1014,6 +1084,10 @@
                     return false;
                 }
 
+                /**
+                 * Randomly shuffle tiles until a solvable board (no immediate matches and at least one possible move) is produced.
+                 * @returns {void}
+                 */
                 reshuffleBoard() {
                     //flatten tiles
                     const list = [];
@@ -1053,6 +1127,11 @@
                     } while (this.findMatches().length > 0 || !this.hasPossibleMove());
                 }
                 
+                /**
+                 * Update board state: animate tiles, detect pooling completions, handle swaps and matches.
+                 * @param {number} dt - Delta time in seconds.
+                 * @returns {void}
+                 */
                 update(dt) {
                     //update all tiles
                     for (let row = 0; row < this.rows; row++) {
@@ -1102,7 +1181,7 @@
                         }
                     }
                     
-                    //handle matches if no tiles are moving
+                    //only check for matches after all tiles have finished falling
                     let anyMoving = false;
                     for (let row = 0; row < this.rows; row++) {
                         for (let col = 0; col < this.cols; col++) {
@@ -1112,8 +1191,9 @@
                         }
                     }
                     
+                    //only process swaps and matches when gravity has completely settled
                     if (!anyMoving && this.swapInProgress) {
-                        //if this was a user-initiated swap, check its result after the visual swap
+                        //if this was a user-initiated swap, check its result after the visual swap and grav settles
                         if (this.pendingUserSwap) {
                             const matches = this.findMatches();
                             if (matches.length > 0) {
@@ -1143,8 +1223,7 @@
                             this.reversingSwap = null;
                         } 
                         else {
-                            //not a user swap if there are matches, handle them;
-                            //otherwise if no possible move exists, reshuffle the board
+                            //not a user swap: check for cascade matches after gravity settles
                             const matches = this.findMatches();
                             if (matches.length > 0) {
                                 this.handleMatches();
@@ -1152,11 +1231,16 @@
                                 if (!this.hasPossibleMove()) {
                                     this.reshuffleBoard();
                                 }
+                                this.swapInProgress = false;
                             }
                         }
                     }
                 }
                 
+                /**
+                 * Render the board, grid, pooled tiles, and visual feedback to the global `ctx`.
+                 * @returns {void}
+                 */
                 draw() {
                     //draw board background
                     ctx.fillStyle = "rgba(30, 30, 60, 0.8)";
@@ -1225,6 +1309,11 @@
                     }
                 }
                 
+                /**
+                 * Handle mouse/touch input for selecting, dragging and dropping tiles on the board.
+                 * Reads global `mouse` state.
+                 * @returns {void}
+                 */
                 handleInput() {
                     const { screenX, screenY, down, wasDown } = mouse;
                     //detect drag 
@@ -1271,73 +1360,169 @@
                         this.draggedTile.scale = 1 + (sizeProgress * 0.3);
                     } 
                     else if (released && this.draggedTile) {
-                        //release the dragged tile
-                        //find grid cell at current position also
-                        const col = Math.round((this.draggedTile.x - this.boardX) / this.tileSize - 0.5);
-                        const row = Math.round((this.draggedTile.y - this.boardY) / this.tileSize - 0.5);
-                        
-                        let foundValidSwap = false;
-                        let targetTile = null;
-                        
-                        //check if the drop position is valid and adjacent
-                        if (col >= 0 && col < this.cols && row >= 0 && row < this.rows) {
-                            targetTile = this.tiles[row][col];
-                            
-                                    if (targetTile && targetTile !== this.draggedTile && 
-                                        this.areAdjacent(this.draggedTile, targetTile)) {
-                                        //perform the swap and mark it as user-initiated so we check after animation
-                                        this.pendingUserSwap = { tile1: this.draggedTile, tile2: targetTile };
-                                        this.swapTiles(this.draggedTile, targetTile);
+                        const tile = this.draggedTile;
+                        const originalTile = this.draggedTileOriginal;
+                        let swapped = false;
+
+                        //try board-to-board swap with nearest adjacent tile
+                        const directions = [
+                            { dc: -1, dr: 0 },
+                            { dc:  1, dr: 0 },
+                            { dc:  0, dr: -1 },
+                            { dc:  0, dr: 1 }
+                        ];
+
+                        for (const dir of directions) {
+                            const targetCol = tile.col + dir.dc;
+                            const targetRow = tile.row + dir.dr;
+
+                            if (targetCol >= 0 && targetCol < this.cols &&
+                                targetRow >= 0 && targetRow < this.rows) {
+                                const targetTile = this.tiles[targetRow][targetCol];
+                                if (targetTile) {
+                                    const dist = Math.hypot(
+                                        tile.x - targetTile.x,
+                                        tile.y - targetTile.y
+                                    );
+                                    if (dist < this.tileSize * 0.6) {
+                                        this.swapTiles(tile, targetTile);
+                                        this.pendingUserSwap = { tile1: tile, tile2: targetTile };
+                                        swapped = true;
+                                        break;
                                     }
-                        }
-                        
-                                //if not a valid drop (not adjacent or no target) animate back immediately
-                                if (!this.pendingUserSwap) {
-                                    this.invalidSwap = true;
-                                    this.invalidSwapTile = this.draggedTile;
-                                    this.invalidSwapTime = 0;
-                                    this.draggedTile.targetX = this.draggedTileOriginal.x;
-                                    this.draggedTile.targetY = this.draggedTileOriginal.y;
                                 }
-                        
-                        //ensure  clear dragging flag on the tile
+                            }
+                        }
+
+                        //if no swap, animate back to original board position
+                        if (!swapped) {
+                            tile.targetX = originalTile.x;
+                            tile.targetY = originalTile.y;
+                            tile.isMoving = true;
+                        }
+
                         if (this.draggedTile) this.draggedTile.beingDragged = false;
-                        this.draggedTile.scale = 1;
+                        if (this.draggedTile) this.draggedTile.scale = 1;
                         this.draggedTile = null;
                         this.draggedTileOriginal = null;
                     }
                 }
             }
-            
-            /** Tile floor, the part of the board where the tiles are laid out
-             *
-             * @class TileFloor
-             * @typedef {TileFloor}
-             */
-            class TileFloor {
-                constructor(tileSize = 85) {
-                    this.tileSize = 85;
-                    this.tiles = [];
-                }
-            }
-            
 
             //initialize the tile board
             this.tileBoard = new TileBoard(6, 6, 20, 120, 65);
+
+            /**
+             * Right-side placement grid that accepts tiles dragged from the pool.
+             */
+            class RightGrid {
+                /**
+                 * @param {number} x - top-left world X
+                 * @param {number} y - top-left world Y
+                 * @param {number} cellSize
+                 */
+                constructor(x, y, cellSize) {
+                    this.x = x;
+                    this.y = y;
+                    this.cellSize = cellSize;
+                    this.cols = 4;
+                    this.rows = 3;
+                    // Array of objects of format {row: Number, col: Number, tile: Tile}
+                    this.tiles = [];
+                }
+
+                /**
+                 * Get cell indices for a world position.
+                 * @param {number} wx
+                 * @param {number} wy
+                 * @returns {{col:number,row:number}|null}
+                 */
+                getCellAtPos(wx, wy) {
+                    const col = Math.floor((wx - this.x) / this.cellSize);
+                    const row = Math.floor((wy - this.y) / this.cellSize);
+                    if (col >= 0 && col < this.cols && row >= 0 && row < this.rows) {
+                        return { col, row };
+                    }
+                    return null;
+                }
+
+                /**
+                 * Place a tile into a specific cell. The tile will be snapped to the cell center.
+                 * @param {Tile} tile
+                 * @param {number} col
+                 * @param {number} row
+                 */
+                placeTile(tile, col, row) {
+                    this.tiles.push({row, col, tile});
+                    tile.inPool = false;
+                    tile.inGrid = true;
+                    tile.matched = false; 
+                    tile.opacity = 1;
+                    tile.row = row;
+                    tile.col = col;
+                    const cx = this.x + col * this.cellSize + this.cellSize / 2;
+                    const cy = this.y + row * this.cellSize + this.cellSize / 2;
+                    tile.targetX = cx;
+                    tile.targetY = cy;
+                    tile.x = cx;
+                    tile.y = cy;
+                    tile.isMoving = false;
+                    tile.beingDragged = false;
+                    tile.scale = 1;
+                }
+
+                /**
+                 * Update animations for tiles inside the grid.
+                 * @param {number} dt
+                 */
+                update(dt) {
+                    for (const { tile } of this.tiles)
+                        if (tile) tile.animate(dt);
+                }
+
+                /**
+                 * Draw grid and its tiles.
+                 * @returns {void}
+                 */
+                draw() {
+                    //draw background and grid cells
+                    ctx.save();
+                    ctx.strokeStyle = "rgba(180,180,180,0.6)";
+                    ctx.lineWidth = 1;
+                    for (let r = 0; r < this.rows; r++) {
+                        for (let c = 0; c < this.cols; c++) {
+                            const x = this.x + c * this.cellSize;
+                            const y = this.y + r * this.cellSize;
+                            ctx.strokeRect(x, y, this.cellSize, this.cellSize);
+                        }
+                    }
+                    //draw tiles
+                    for (const { tile } of this.tiles)
+                        if (tile) tile.draw(this.cellSize, false);
+                    ctx.restore();
+                }
+            }
+
+            //create a right-side grid positioned below the tile board
+            const gridWidth = 4 * this.tileBoard.tileSize;
+            const rgx = (width - gridWidth) / 2;
+            const rgy = this.tileBoard.boardY + this.tileBoard.rows * this.tileBoard.tileSize + 20;
+            this.rightGrid = new RightGrid(rgx, rgy, this.tileBoard.tileSize);
 
             
         };
         
         /* Run the game */
         App.prototype.runGame = function(dt) {
-            console.warn("hello");
             //update tile board
             if (this.tileBoard) {
                 this.tileBoard.update(dt);
                 this.tileBoard.pool.update(dt);
+                if (this.rightGrid) this.rightGrid.update(dt);
                 this.tileBoard.handleInput();
                 this.tileBoard.pool.handleInput();
                 this.tileBoard.draw();
+                if (this.rightGrid) this.rightGrid.draw();
             }
              
         };
@@ -1483,16 +1668,14 @@
     
     //intiate a new game
     window.App = new Application({});
-    window.player = App.player;
 
     //start a lightweight drawer for pool andd tilemap so they render on top
     (function startTileDraw() {
+        /**
+         * Background drawer used to render auxiliary layers (tile pool / tile map)
+         * above the main loop. Runs on its own RAF.
+         */
         function loop() {
-            if (window.App && window.App.tilePool && window.App.tileMap) {
-                //draw on main ctx
-                window.App.tilePool.draw(ctx);
-                window.App.tileMap.draw(ctx);
-            }
             requestAnimationFrame(loop);
         }
         requestAnimationFrame(loop);
@@ -1512,6 +1695,12 @@
 
 
     //a render loop with a timestamp for dt updating @Judges
+    /**
+     * Main render function invoked by the RAF-driven loop. Updates timing values,
+     * clears the canvas and runs the application `App.run` with computed delta time.
+     * @param {DOMHighResTimeStamp|number} timestamp
+     * @returns {void}
+     */
     const render = (timestamp) => {
         try {
             //prefer the rAF timestamp when present
@@ -1583,6 +1772,11 @@
     * @param {number} now - the current timestamp provided by requestanimationframe
     * @returns {void}
     */
+    /**
+     * High level loop that guards running state and schedules the next RAF.
+     * @param {number} now - The current timestamp from requestAnimationFrame.
+     * @returns {void}
+     */
     function loop(now) {
         //if (!debug.freeze) {
         if (!running) {
@@ -1703,6 +1897,11 @@
     });
     
     //intiate...
+    /**
+     * Open the current document in a new window (simple fullscreen mode). Copies
+     * the current DOM HTML into the new window and sets a session flag to skip the menu.
+     * @returns {void}
+     */
     const openInFullscreen = () => {
         sessionStorage.setItem('skipMenu', 'true');
         
